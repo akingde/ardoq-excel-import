@@ -136,11 +136,13 @@ public class ExcelImport {
            ExcelComponent currentComp = null;
            String parentPath = null;
            for (int i = 0; i < componentCellRange+1; i++){
-               if (compTypeMap.containsKey(i) && row.getCell(i) != null && row.getCell(i).getRawValue().trim().length()> 1){
+               if (compTypeMap.containsKey(i) && row.getCell(i) != null){
                    String name = (row.getCell(i).getCellType() != Cell.CELL_TYPE_STRING ) ? row.getCell(i).getRawValue().trim() : row.getCell(i).getStringCellValue();
-                   parentPath = (parentPath == null) ? name : parentPath+"."+name;
-                   Component c = getComponent(parentPath, name, compTypeMap.get(i));
-                   currentComp = new ExcelComponent(parentPath, c, currentComp);
+                   if (!("".equals(name))) {
+                       parentPath = (parentPath == null) ? name : parentPath + "." + name;
+                       Component c = getComponent(parentPath, name, compTypeMap.get(i));
+                       currentComp = new ExcelComponent(parentPath, c, currentComp);
+                   }
                }
            }
            if (currentComp != null) {
