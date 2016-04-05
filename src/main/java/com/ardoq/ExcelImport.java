@@ -14,6 +14,7 @@ public class ExcelImport {
 
     private static final String fieldColMapping_prefix = "fieldColMapping_";
     private static final String compMappingPrefix = "compMapping_";
+    private static final int CONSECUTIVE_EMPTY_ROWS_MAX = 10;
     private static String componentSeparator = "::";
     private static String token;
     private static String host;
@@ -129,6 +130,7 @@ public class ExcelImport {
         }
 
         int rowIndex = 1;
+        int emptyRowCount = 0;
         XSSFRow row = compSheet.getRow(rowIndex);
 
         while (row != null)
@@ -168,6 +170,16 @@ public class ExcelImport {
                currentComp.getMyComponent().setFields(fields);
            }
            row = compSheet.getRow(++rowIndex);
+           if (row != null) {
+               if (row.cellIterator().hasNext()) {
+                   emptyRowCount = 0;
+               } else {
+                   emptyRowCount++;
+               }
+               if (emptyRowCount == CONSECUTIVE_EMPTY_ROWS_MAX) {
+                   row = null;
+               }
+           }
         }
         for (ExcelComponent ec : ExcelComponent.getRootNodes())
         {
