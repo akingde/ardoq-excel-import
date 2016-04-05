@@ -31,7 +31,7 @@
         <dependency>
             <groupId>com.ardoq</groupId>
             <artifactId>java-api-client</artifactId>
-            <version>0.9.8</version>
+            <version>0.9.9</version>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>
@@ -85,7 +85,8 @@
                <groupId>org.apache.maven.plugins</groupId>
                <artifactId>maven-compiler-plugin</artifactId>
                <configuration>
-                   <source>1.5</source>
+                   <source>1.8</source>
+                   <target>1.8</target>
                </configuration>
            </plugin>
            <plugin>

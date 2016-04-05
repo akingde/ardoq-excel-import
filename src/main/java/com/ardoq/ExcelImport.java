@@ -1,6 +1,7 @@
 package com.ardoq;
 
 import com.ardoq.model.*;
+import com.ardoq.service.FieldService;
 import com.ardoq.util.SyncUtil;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.xssf.usermodel.*;
@@ -9,6 +10,7 @@ import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class ExcelImport {
 
@@ -20,13 +22,13 @@ public class ExcelImport {
     private static String host;
 
     private final static Properties config = new Properties();
-    private static HashMap<String, String> columnMapping = new HashMap<String, String>();
+    private static Map<String, String> columnMapping = new HashMap<>();
     private static String modelName;
     private static String workspaceName;
     private static String componentSheet;
     private static String componentFile;
     private static String referenceFile;
-    private static HashMap<String, String> compMapping = new HashMap<String, String>();
+    private static Map<String, String> compMapping = new HashMap<>();
 
 
     private static String descriptionColumn;
@@ -48,6 +50,7 @@ public class ExcelImport {
             System.out.println("Loading config: " + configFile);
             config.load(new FileReader(configFile));
             parseConfig();
+            verifyModel();
             initClient();
             syncComponents();
 
@@ -61,12 +64,62 @@ public class ExcelImport {
             }
 
             System.out.println(ardoqSync.getReport());
-
-
         }
         else
         {
             System.err.println("Path to config file must be first argument.");
+        }
+    }
+
+    private static void verifyModel() {
+        ArdoqClient client = new ArdoqClient(host, token);
+        Model model = client.model().getModelByName(modelName);
+        String modelId = getModelId(model);
+        FieldService fieldService = client.field();
+        List<Field> allFields = fieldService.getAllFields();
+        List<Field> modelFields = allFields.stream().filter(field -> field.getModel().equals(modelId)).collect(Collectors.toList());
+        System.out.println("Fields in Model <" + modelName + "> :");
+        toString(modelFields);
+        Map<String, String> fieldMapping = new HashMap<>();
+        Map<String, String> labelMapping = new HashMap<>();
+        for (Field field : modelFields) {
+            fieldMapping.put(field.getName(), field.getLabel());
+            labelMapping.put(field.getLabel(), field.getName());
+        }
+        for (String column : columnMapping.keySet()) {
+            String field = columnMapping.get(column);
+            if (!fieldMapping.keySet().contains(field) && labelMapping.keySet().contains(field)) {
+                System.out.println("For column <" + column + "> replacing field <" + field + "> with label <" + labelMapping.get(field) + ">.");
+                columnMapping.put(column, labelMapping.get(field));
+            }
+        }
+        List<String> fields = modelFields.stream().map(Field::getName).collect(Collectors.toList());
+        List<String> columnFields = new ArrayList<>(columnMapping.values());
+        List<String> importingUnknown = new ArrayList<>(columnFields);
+        importingUnknown.removeAll(fields);
+        List<String> notImporting = new ArrayList<>(fields);
+        notImporting.removeAll(columnFields);
+
+        System.out.println("Columns not mapping to fields: " + importingUnknown);
+        System.out.println("Fields not mapping to columns: " + notImporting);
+    }
+
+    private static String getModelId(Model model) {
+        if (model != null) {
+            return model.getId();
+        } else {
+            throw new RuntimeException("Model <" + modelName + "> not found in Ardoq.");
+        }
+    }
+
+    private static void toString(List<Field> fields) {
+        for (Field field : fields) {
+            System.out.println("\tName: <" + field.getName() +
+                    ">, Label: <" + field.getLabel() +
+                    ">, Type: " + field.getType() +
+                    ">, Descr: <" + field.getDescription() +
+                    "."
+            );
         }
     }
 
@@ -330,23 +383,20 @@ public class ExcelImport {
         referenceSourceColumn = getNumberConfig("referenceSourceColumn");
         referenceStartFromColumn = getNumberConfig("referenceStartFromColumn");
 
-
         for (Object o : config.keySet()){
             String key = (String)o;
             if (key.startsWith(fieldColMapping_prefix))
             {
-                System.out.println("Mapping column "+key.replace(fieldColMapping_prefix, "")+" to field "+config.getProperty(key));
+                System.out.println("Mapping column <" + key.replace(fieldColMapping_prefix, "") + "> to field <" + config.getProperty(key) + ">.");
                 columnMapping.put(key.replace(fieldColMapping_prefix, ""),config.getProperty(key));
             }
 
             if (key.startsWith(compMappingPrefix))
             {
-                System.out.println("Mapping column "+key.replace(compMappingPrefix, "")+" to component type "+config.getProperty(key));
+                System.out.println("Mapping column <" + key.replace(compMappingPrefix, "") + "< to component type <" + config.getProperty(key) + ">.");
                 compMapping.put(key.replace(compMappingPrefix, ""),config.getProperty(key));
             }
         }
-
-
     }
 
     private static int getNumberConfig(String numericPropertyKey) {
@@ -370,6 +420,4 @@ public class ExcelImport {
         }
         return value;
     }
-
-
 }
