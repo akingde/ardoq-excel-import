@@ -5,9 +5,9 @@ See [data.xslx](./src/main/resources/data.xlsx?raw=true) for an example Excel fo
 ##Execution
 You must configure your authentication token and set the environment variable ```ardoqToken``` in your environment, or specify it in the properties file.
 
-After you have downloaded this project or [the Überjar](./build/ardoq-excel-import-0.5.5.jar?raw=true) you can execute it with the following command:
+After you have downloaded this project or [the Überjar](./build/ardoq-excel-import-1.0.jar?raw=true) you can execute it with the following command:
 
-```java -Dfile.encoding=UTF-8 -classpath "build/ardoq-excel-import-0.5.5.jar" com.ardoq.ExcelImport ./default.properties```
+```java -Dfile.encoding=UTF-8 -classpath "build/ardoq-excel-import-1.0.jar" com.ardoq.ExcelImport ./default.properties```
 
 ##Configuration
 

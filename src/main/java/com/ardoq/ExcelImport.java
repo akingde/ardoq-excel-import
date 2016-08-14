@@ -50,8 +50,8 @@ public class ExcelImport {
             System.out.println("Loading config: " + configFile);
             config.load(new FileReader(configFile));
             parseConfig();
-            verifyModel();
             initClient();
+            verifyModel();
             syncComponents();
 
             if (null != referenceFile)
@@ -72,8 +72,7 @@ public class ExcelImport {
     }
 
     private static void verifyModel() {
-        ArdoqClient client = new ArdoqClient(host, token);
-        Model model = client.model().getModelByName(modelName);
+        Model model = ardoqSync.getModel();
         String modelId = getModelId(model);
         FieldService fieldService = client.field();
         List<Field> allFields = fieldService.getAllFields();
@@ -352,7 +351,25 @@ public class ExcelImport {
         System.out.println("Connecting to: "+host+" with token: "+token);
         client = new ArdoqClient(host, token);
         client.setOrganization(organization);
-        ardoqSync = new SyncUtil(client, workspaceName, modelName);
+        List<Workspace> workspaces = client.workspace().findWorkspacesByName(workspaceName);
+
+        if(workspaces.size()>1) {
+            System.out.println("Multiple workspaces match name '"+workspaceName+"'. Please rename or delete workspaces with identical names");
+            System.exit(0);
+        }
+
+        Workspace workspace = null;
+        if(workspaces.size()==1) {
+            workspace = workspaces.get(0);
+        }
+
+        if(workspaces.size()==0) {
+            Model template = client.model().getTemplateByName(modelName);
+            workspace = new Workspace(workspaceName, template.getId(),"");
+            workspace = client.workspace().createWorkspace(workspace);
+        }
+
+        ardoqSync = new SyncUtil(client, workspace);
     }
 
     private static void parseConfig() {
