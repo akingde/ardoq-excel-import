@@ -26,15 +26,13 @@ public class ExcelComponent {
         if (parent != null) {
             this.parent = parent;
             this.parent.addChild(this);
-        }else
-        {
+        } else {
             rootNodes.add(this);
         }
-
-
     }
+
     public ExcelComponent(String path, Component myComponent) {
-        this(path, myComponent,null);
+        this(path, myComponent, null);
     }
 
     public ArrayList<ExcelComponent> getChildren() {
@@ -57,8 +55,7 @@ public class ExcelComponent {
         return path;
     }
 
-    public static ExcelComponent getExcelComponent(String path)
-    {
+    public static ExcelComponent getExcelComponent(String path) {
         return pathMap.get(path);
     }
 

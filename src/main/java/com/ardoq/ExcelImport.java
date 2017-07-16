@@ -5,6 +5,7 @@ import com.ardoq.service.FieldService;
 import com.ardoq.util.SyncUtil;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.xssf.usermodel.*;
+import retrofit.RestAdapter;
 
 import java.io.FileInputStream;
 import java.io.FileReader;
@@ -16,10 +17,12 @@ public class ExcelImport {
 
     private static final String fieldColMapping_prefix = "fieldColMapping_";
     private static final String compMappingPrefix = "compMapping_";
+    private static final String dynamicCompMappingPrefix = "dynamicCompMapping_";
     private static final int CONSECUTIVE_EMPTY_ROWS_MAX = 10;
     private static String componentSeparator = "::";
     private static String token;
     private static String host;
+    private static RestAdapter.LogLevel logLevel = RestAdapter.LogLevel.NONE;
 
     private final static Properties config = new Properties();
     private static Map<String, String> columnMapping = new HashMap<>();
@@ -29,6 +32,7 @@ public class ExcelImport {
     private static String componentFile;
     private static String referenceFile;
     private static Map<String, String> compMapping = new HashMap<>();
+    private static Map<String, String> dynamicCompMapping = new HashMap<>();
 
 
     private static String descriptionColumn;
@@ -42,7 +46,7 @@ public class ExcelImport {
     private static int referenceSourceColumn;
     private static int referenceStartFromColumn;
 
-    static HashMap<String, Component> cachedMap = new HashMap<String, Component>();
+    static HashMap<String, Component> cachedMap = new HashMap<>();
 
     public static void main(String[] args) throws IOException {
         if (args.length > 0) {
@@ -54,19 +58,16 @@ public class ExcelImport {
             verifyModel();
             syncComponents();
 
-            if (null != referenceFile)
-            {
+            if (null != referenceFile) {
                 syncReferences();
             }
 
-            if (config.getProperty("deleteMissing", "no").trim().equals("YES")){
+            if (config.getProperty("deleteMissing", "no").trim().equals("YES")) {
                 ardoqSync.deleteNotSyncedItems();
             }
 
             System.out.println(ardoqSync.getReport());
-        }
-        else
-        {
+        } else {
             System.err.println("Path to config file must be first argument.");
         }
     }
@@ -114,141 +115,176 @@ public class ExcelImport {
     private static void toString(List<Field> fields) {
         for (Field field : fields) {
             System.out.println("\tName: <" + field.getName() +
-                    ">, Label: <" + field.getLabel() +
-                    ">, Type: " + field.getType() +
-                    ">, Descr: <" + field.getDescription() +
-                    "."
+                            ">, Label: <" + field.getLabel() +
+                            ">, Type: " + field.getType() +
+                            ">, Descr: <" + field.getDescription() +
+                            ">."
             );
         }
     }
 
     private static void syncComponents() throws IOException {
 
-        System.out.println("Loading Excel file: "+componentFile);
+        System.out.println("Loading Excel file: " + componentFile);
         XSSFWorkbook workbook = new XSSFWorkbook(new FileInputStream(componentFile));
 
-        System.out.println("Finding spread sheet: "+componentSheet);
+        System.out.println("Finding spread sheet: " + componentSheet);
         // Import components
         XSSFSheet compSheet = workbook.getSheet(componentSheet);
+
         System.out.println("Analyzing sheet");
-        XSSFRow columnRow = compSheet.getRow(0);
+        XSSFRow headingRow = compSheet.getRow(0);
 
         int descriptionIndex = -1;
-        HashMap<Integer, String> compTypeMap = new HashMap<Integer,String>();
-        HashMap<Integer,String> fieldTypeMap = new HashMap<Integer,String>();
-        int componentCellRange = 0;
-        Iterator<Cell> cellIterator = columnRow.cellIterator();
-        while (cellIterator.hasNext()){
-            Cell cell = cellIterator.next();
-            String heading = cell.getStringCellValue().trim();
+        HashMap<Integer, String> compTypeMap = new HashMap<>();
+        HashMap<Integer, String> fieldTypeMap = new HashMap<>();
+        HashMap<Integer, Integer> dynamicCompTypeColumns = new HashMap<>();
 
-            if (heading.length() > 0){
-            boolean found = false;
-            if (heading.equals(descriptionColumn))
-            {
-                found = true;
-                descriptionIndex = cell.getColumnIndex();
-                System.out.println("Found description column: "+heading+", "+descriptionIndex);
-            }
-            if (compMapping.containsKey(heading)){
-                found = true;
-                System.out.println("Found componentType heading: "+heading+" , "+cell.getColumnIndex());
-                compTypeMap.put(cell.getColumnIndex(), compMapping.get(heading));
-                componentCellRange = (cell.getColumnIndex() > componentCellRange) ? cell.getColumnIndex() : componentCellRange;
-                compMapping.remove(heading);
-            }
-            if (columnMapping.containsKey(heading))
-            {
-                found = true;
-                System.out.println("Found field heading: "+heading+" , "+cell.getColumnIndex());
-                fieldTypeMap.put(cell.getColumnIndex(),columnMapping.get(heading));
-                columnMapping.remove(heading);
-            }
-                if (!found)
-                {
-                    System.out.println("Ignored column, no component or field mapping found: "+heading);
+        int componentCellRange = 0;
+        Iterator<Cell> headingCellIterator = headingRow.cellIterator();
+        while (headingCellIterator.hasNext()) {
+            Cell headingCell = headingCellIterator.next();
+            String heading = headingCell.getStringCellValue().trim();
+
+            if (heading.length() > 0) {
+                boolean found = false;
+                if (heading.equals(descriptionColumn)) {
+                    found = true;
+                    descriptionIndex = headingCell.getColumnIndex();
+                    System.out.println("Found description column: " + heading + ", " + descriptionIndex);
+                }
+                if (compMapping.containsKey(heading)) {
+                    found = true;
+                    System.out.println("Found componentType heading: " + heading + " , " + headingCell.getColumnIndex());
+                    compTypeMap.put(headingCell.getColumnIndex(), compMapping.get(heading));
+                    componentCellRange = (headingCell.getColumnIndex() > componentCellRange) ? headingCell.getColumnIndex() : componentCellRange;
+                    compMapping.remove(heading);
+                }
+                if (columnMapping.containsKey(heading)) {
+                    found = true;
+                    System.out.println("Found field heading: " + heading + " , " + headingCell.getColumnIndex());
+                    fieldTypeMap.put(headingCell.getColumnIndex(), columnMapping.get(heading));
+                    columnMapping.remove(heading);
+                }
+                if (dynamicCompMapping.containsKey(heading)) {
+                    found = true;
+                    System.out.println("Found field heading: " + heading + " , " + headingCell.getColumnIndex());
+                    componentCellRange = (headingCell.getColumnIndex() > componentCellRange) ? headingCell.getColumnIndex() : componentCellRange;
+                    dynamicCompTypeColumns.put(headingCell.getColumnIndex(), findDynamicTypeColumnIndex(headingRow, dynamicCompMapping.get(heading)));
+                    columnMapping.remove(heading);
+                }
+                if (!found) {
+                    System.out.println("Ignored column, no component or field mapping found: " + heading);
                 }
             }
         }
 
-        System.out.println(ardoqSync.getModel().getComponentTypes());
-
-        for (String key : columnMapping.keySet()){
-            System.out.println("WARNING: Couldn't find Column: "+key+" - cannot map it to field: "+columnMapping.get("key"));
+        for (String key : columnMapping.keySet()) {
+            System.out.println("WARNING: Couldn't find Column: " + key + " - cannot map it to field: " + columnMapping.get("key"));
         }
 
-        for (String key : compMapping.keySet()){
-            System.out.println("WARNING: Couldn't find Column: "+key+" - cannot map it to component type: "+compMapping.get("key"));
+        for (String key : compMapping.keySet()) {
+            System.out.println("WARNING: Couldn't find Column: " + key + " - cannot map it to component type: " + compMapping.get("key"));
         }
 
         int rowIndex = 1;
         int emptyRowCount = 0;
         XSSFRow row = compSheet.getRow(rowIndex);
 
-        while (row != null)
-        {
-           ExcelComponent currentComp = null;
-           String parentPath = null;
-           for (int i = 0; i < componentCellRange+1; i++){
-               if (compTypeMap.containsKey(i) && row.getCell(i) != null){
-                   String name = (row.getCell(i).getCellType() != Cell.CELL_TYPE_STRING ) ? row.getCell(i).getRawValue().trim() : row.getCell(i).getStringCellValue();
-                   if (!("".equals(name))) {
-                       parentPath = (parentPath == null) ? name : parentPath + "." + name;
-                       Component c = getComponent(parentPath, name, compTypeMap.get(i));
-                       currentComp = new ExcelComponent(parentPath, c, currentComp);
-                   }
-               }
-           }
-           if (currentComp != null) {
-               System.out.println("Found component: "+currentComp.getMyComponent().getName());
-               currentComp.getMyComponent().setDescription((descriptionIndex != -1 && row.getCell(descriptionIndex) != null) ? row.getCell(descriptionIndex).getStringCellValue() : "");
-               HashMap<String, Object> fields = new HashMap<String, Object>();
-               for (Integer column : fieldTypeMap.keySet()){
-                   Cell fieldValue = row.getCell(column);
-                   if (fieldValue != null) {
-                       String key = fieldTypeMap.get(column);
-                       if (fieldValue.getCellType() == Cell.CELL_TYPE_BOOLEAN)
-                       {
-                           fields.put(key, fieldValue.getBooleanCellValue());
-                       }
-                       else if (fieldValue.getCellType() == Cell.CELL_TYPE_NUMERIC){
-                           fields.put(key, fieldValue.getNumericCellValue());
-                       }
-                       else if (fieldValue.getStringCellValue().trim().length() > 0){
-                           fields.put(key, fieldValue.getStringCellValue().trim());
-                       }
-                   }
-               }
-               currentComp.getMyComponent().setFields(fields);
-           }
-           row = compSheet.getRow(++rowIndex);
-           if (row != null) {
-               if (row.cellIterator().hasNext()) {
-                   emptyRowCount = 0;
-               } else {
-                   emptyRowCount++;
-               }
-               if (emptyRowCount == CONSECUTIVE_EMPTY_ROWS_MAX) {
-                   row = null;
-               }
-           }
+        while (row != null) {
+            ExcelComponent currentComp = null;
+            String parentPath = null;
+            for (int i = 0; i < componentCellRange + 1; i++) {
+                XSSFCell currentCell = row.getCell(i);
+                String compType = resolveComponentType(row, compTypeMap, dynamicCompTypeColumns, i);
+                if (currentCell != null && compType != null) {
+                    String name = (currentCell.getCellType() != Cell.CELL_TYPE_STRING) ?
+                            currentCell.getRawValue() : currentCell.getStringCellValue();
+                    if (!("".equals(name))) {
+                        parentPath = (parentPath == null) ? name : parentPath + SyncUtil.SPLIT_CHARACTER + name;
+                        Component c = getComponent(parentPath, name, compType);
+                        currentComp = new ExcelComponent(parentPath, c, currentComp);
+                    }
+                }
+            }
+            if (currentComp != null) {
+                System.out.println("Found component: " + currentComp.getMyComponent().getName());
+                currentComp.getMyComponent().setDescription((descriptionIndex != -1 && row.getCell(descriptionIndex) != null) ? row.getCell(descriptionIndex).getStringCellValue() : "");
+                HashMap<String, Object> fields = new HashMap<String, Object>();
+                for (Integer column : fieldTypeMap.keySet()) {
+                    Cell fieldValue = row.getCell(column);
+                    if (fieldValue != null) {
+                        String key = fieldTypeMap.get(column);
+                        fields.put(key, getFieldValue(fieldValue.getCellType(), fieldValue));
+                    }
+                }
+                currentComp.getMyComponent().setFields(fields);
+            }
+            row = compSheet.getRow(++rowIndex);
+            if (row != null) {
+                if (row.cellIterator().hasNext()) {
+                    emptyRowCount = 0;
+                } else {
+                    emptyRowCount++;
+                }
+                if (emptyRowCount == CONSECUTIVE_EMPTY_ROWS_MAX) {
+                    row = null;
+                }
+            }
         }
-        for (ExcelComponent ec : ExcelComponent.getRootNodes())
-        {
+        for (ExcelComponent ec : ExcelComponent.getRootNodes()) {
             ec.setMyComponent(ardoqSync.addComponent(ec.getMyComponent()));
             //Update cache.
             cachedMap.put(ec.getPath(), ec.getMyComponent());
             storeRecursive(ec);
         }
+        System.out.println("DONE syncing components!");
+    }
 
+    private static Object getFieldValue(int type, Cell cell) {
+        switch (type) {
+            case Cell.CELL_TYPE_STRING:
+                return cell.getStringCellValue();
+            case Cell.CELL_TYPE_BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case Cell.CELL_TYPE_NUMERIC:
+                return cell.getNumericCellValue();
+            case Cell.CELL_TYPE_FORMULA:
+                return getFieldValue(cell.getCachedFormulaResultType(), cell);
+            default:
+                return cell.getStringCellValue();
+        }
+    }
+
+    private static String resolveComponentType(XSSFRow row, HashMap<Integer, String> compTypeMap,
+                                               HashMap<Integer, Integer> dynamicCompTypeColumns, int i) {
+        if (compTypeMap.containsKey(i)) {
+            return compTypeMap.get(i);
+        } else if (dynamicCompTypeColumns.containsKey(i)) {
+            XSSFCell cell = row.getCell(dynamicCompTypeColumns.get(i));
+            if (cell != null && !cell.getStringCellValue().isEmpty()) {
+                return cell.getStringCellValue();
+            }
+            return cell != null ? cell.getStringCellValue() : null;
+        }
+        return null;
+    }
+
+    private static Integer findDynamicTypeColumnIndex(XSSFRow headingRow, String typeColumnHeader) {
+        return StreamUtils.asStream(headingRow.iterator())
+                .filter(cell -> cell.getCellType() == Cell.CELL_TYPE_STRING &&
+                        cell.getStringCellValue().equals(typeColumnHeader))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Column " + typeColumnHeader + " doesn't exist, unable to map dynamic type!"))
+                .getColumnIndex();
     }
 
     private static void syncReferences() throws IOException {
 
-        System.out.println("Loading Excel file: "+referenceFile);
+        System.out.println("Loading Excel file: " + referenceFile);
         XSSFWorkbook workbook = new XSSFWorkbook(new FileInputStream(referenceFile));
 
-        System.out.println("Finding reference spread sheet: "+referenceFile);
+        System.out.println("Finding reference spread sheet: " + referenceFile);
         // Import components
         XSSFSheet referenceSheet = workbook.getSheet(ExcelImport.referenceSheet);
         System.out.println("Analyzing sheet");
@@ -256,11 +292,10 @@ public class ExcelImport {
         int rowIndex = referenceStartFromRow;
         XSSFRow referencesRow = referenceSheet.getRow(rowIndex);
 
-        while(referencesRow != null)
-        {
-            String sourcePath =getStringValueFromCell(referencesRow, referenceSourceColumn);
+        while (referencesRow != null) {
+            String sourcePath = getStringValueFromCell(referencesRow, referenceSourceColumn);
             if (sourcePath != null) {
-                sourcePath = sourcePath.replace(componentSeparator, ".");
+                sourcePath = sourcePath.replace(componentSeparator, SyncUtil.SPLIT_CHARACTER);
                 Component sourceComp = cachedMap.get(sourcePath);
                 if (null != sourceComp) {
                     List<Component> targetComponents = getTargetComponents(referencesRow);
@@ -280,92 +315,88 @@ public class ExcelImport {
                 } else {
                     System.err.println("Couldn't find source component: " + sourcePath);
                 }
-            }
-            else
-            {
-                System.err.println("Could not find source component in row: "+(rowIndex+1));
+            } else {
+                System.err.println("Could not find source component in row: " + (rowIndex + 1));
             }
             referencesRow = referenceSheet.getRow(++rowIndex);
         }
+        System.out.println("DONE syncing references!");
     }
 
     private static List<Component> getTargetComponents(XSSFRow referencesRow) {
         ArrayList<Component> comps = new ArrayList<Component>();
-        String[] targetComponentPath = getStringValueFromCell(referencesRow, referenceStartFromColumn).split(",");
-        for (String tc : targetComponentPath){
-            Component c = cachedMap.get(tc.replace(componentSeparator, ".").trim());
-            if (c != null){
-                comps.add(c);
-            }
-            else
-            {
-                System.err.println("Couldn't find target component: "+tc);
-            }
+        String tc = getStringValueFromCell(referencesRow, referenceStartFromColumn);
+
+        Component c = cachedMap.get(tc.replace(componentSeparator, SyncUtil.SPLIT_CHARACTER));
+        if (c != null) {
+            comps.add(c);
+        } else {
+            System.err.println("Couldn't find target component: " + tc);
         }
+
         return comps;
     }
 
     private static String getStringValueFromCell(XSSFRow referencesRow, int cellNumber) {
         String cellValue = "";
         Cell sourceCell = referencesRow.getCell(cellNumber);
-        if (sourceCell != null){
-            cellValue = sourceCell.getStringCellValue().trim();
+        if (sourceCell != null) {
+            cellValue = sourceCell.getStringCellValue();
         }
-        if (cellValue.length() == 0){
+        if (cellValue.length() == 0) {
             cellValue = null;
         }
         return cellValue;
     }
 
     private static void storeRecursive(ExcelComponent ec) {
-       for (ExcelComponent child : ec.getChildren())
-       {
-           child.getMyComponent().setParent(ec.getMyComponent().getId());
-           child.setMyComponent(ardoqSync.addComponent(child.getMyComponent()));
-           //Update cache.
-           cachedMap.put(child.getPath(), child.getMyComponent());
-           storeRecursive(child);
-       }
+        for (ExcelComponent child : ec.getChildren()) {
+            child.getMyComponent().setParent(ec.getMyComponent().getId());
+            child.setMyComponent(ardoqSync.addComponent(child.getMyComponent()));
+            //Update cache.
+            cachedMap.put(child.getPath(), child.getMyComponent());
+            storeRecursive(child);
+        }
     }
 
     private static Component getComponent(String path, String name, String type) {
         Component comp = ardoqSync.getComponentByPath(path);
-        if (comp == null)
-        {
+        if (comp == null) {
             comp = cachedMap.get(path);
+        } else if (!comp.getType().equals(type)) {
+            comp.setTypeId(ardoqSync.getModel().getComponentTypeByName(type));
+            comp.setType(type);
         }
 
-        if (comp == null)
-        {
+        if (comp == null) {
             comp = new Component(name, ardoqSync.getWorkspace().getId(), "", ardoqSync.getModel().getComponentTypeByName(type));
             cachedMap.put(path, comp);
-        }
-        else
-        {
+        } else {
             cachedMap.put(path, comp);
         }
         return comp;
     }
 
     private static void initClient() {
-        System.out.println("Connecting to: "+host+" with token: "+token);
+        System.out.println("Connecting to: " + host + " with token: " + token);
         client = new ArdoqClient(host, token);
+        client.setLogLevel(logLevel);
         client.setOrganization(organization);
         List<Workspace> workspaces = client.workspace().findWorkspacesByName(workspaceName);
 
-        if(workspaces.size()>1) {
-            System.out.println("Multiple workspaces match name '"+workspaceName+"'. Please rename or delete workspaces with identical names");
+        if (workspaces.size() > 1) {
+            System.out.println("Multiple workspaces match name '" + workspaceName + "'. Please rename or delete workspaces with identical names");
             System.exit(0);
         }
 
         Workspace workspace = null;
-        if(workspaces.size()==1) {
+        if (workspaces.size() == 1) {
             workspace = workspaces.get(0);
         }
 
-        if(workspaces.size()==0) {
+        if (workspaces.size() == 0) {
             Model template = client.model().getTemplateByName(modelName);
-            workspace = new Workspace(workspaceName, template.getId(),"");
+            workspace = new Workspace(workspaceName, template.getId(), "");
             workspace = client.workspace().createWorkspace(workspace);
         }
 
@@ -376,6 +407,9 @@ public class ExcelImport {
         host = config.getProperty("ardoqHost", "https://app.ardoq.com");
         token = config.getProperty("ardoqToken", System.getenv("ardoqToken"));
         organization = config.getProperty("organization", "ardoq");
+        if (config.getProperty("clientLogLevel") != null) {
+            logLevel = RestAdapter.LogLevel.valueOf(config.getProperty("clientLogLevel"));
+        }
 
         componentSeparator = config.getProperty("referenceComponentSeparator", componentSeparator);
 
@@ -400,18 +434,21 @@ public class ExcelImport {
         referenceSourceColumn = getNumberConfig("referenceSourceColumn");
         referenceStartFromColumn = getNumberConfig("referenceStartFromColumn");
 
-        for (Object o : config.keySet()){
-            String key = (String)o;
-            if (key.startsWith(fieldColMapping_prefix))
-            {
+        for (Object o : config.keySet()) {
+            String key = (String) o;
+            if (key.startsWith(fieldColMapping_prefix)) {
                 System.out.println("Mapping column <" + key.replace(fieldColMapping_prefix, "") + "> to field <" + config.getProperty(key) + ">.");
-                columnMapping.put(key.replace(fieldColMapping_prefix, ""),config.getProperty(key));
+                columnMapping.put(key.replace(fieldColMapping_prefix, ""), config.getProperty(key));
             }
 
-            if (key.startsWith(compMappingPrefix))
-            {
+            if (key.startsWith(compMappingPrefix)) {
                 System.out.println("Mapping column <" + key.replace(compMappingPrefix, "") + "< to component type <" + config.getProperty(key) + ">.");
-                compMapping.put(key.replace(compMappingPrefix, ""),config.getProperty(key));
+                compMapping.put(key.replace(compMappingPrefix, ""), config.getProperty(key));
+            }
+
+            if (key.startsWith(dynamicCompMappingPrefix)) {
+                System.out.println("Mapping column <" + key.replace(dynamicCompMappingPrefix, "") + ">,  will use dynamic type mapping");
+                dynamicCompMapping.put(config.getProperty(key), key.replace(dynamicCompMappingPrefix, ""));
             }
         }
     }
@@ -419,10 +456,10 @@ public class ExcelImport {
     private static int getNumberConfig(String numericPropertyKey) {
         String s = config.getProperty(numericPropertyKey, "-1").trim();
         Integer i = -1;
-        try
-        {i = Integer.parseInt(s);}
-        catch (NumberFormatException nfe){
-            System.err.println("WARNING! Couldn't parse "+numericPropertyKey+" as Integer. Value was: "+s);
+        try {
+            i = Integer.parseInt(s);
+        } catch (NumberFormatException nfe) {
+            System.err.println("WARNING! Couldn't parse " + numericPropertyKey + " as Integer. Value was: " + s);
         }
 
         return i;
@@ -430,9 +467,8 @@ public class ExcelImport {
 
     private static String getRequiredValue(String key) {
         String value = config.getProperty(key);
-        if (value == null)
-        {
-            System.err.println(key+" was not configured in config. Exiting!");
+        if (value == null) {
+            System.err.println(key + " was not configured in config. Exiting!");
             System.exit(-1);
         }
         return value;
