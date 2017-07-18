@@ -1,44 +1,51 @@
-This utility imports pages and references from one or two Excel.xlsx files into Ardoq.
+This utility imports data from Excel into Ardoq.
 
-See [data.xslx](./src/main/resources/data.xlsx?raw=true) for an example Excel format we can use for importing.
+See [./examples/business_process/business_process.xlsm](./examples/business_process/business_process.xlsm?raw=true) for an example Excel format we can use for importing.
+The file also contains a VBA script for automatically generating references that can be used as a starting point.
 
-##Execution
-You must configure your authentication token and set the environment variable ```ardoqToken``` in your environment, or specify it in the properties file.
+## Execution
+You must configure your authentication token and set the environment variable `ardoqToken` and `organization` in your environment, or specify it in the properties file.
 
-After you have downloaded this project or [the Überjar](./build/ardoq-excel-import-1.0.jar?raw=true) you can execute it with the following command:
+After you have downloaded this project you can execute the example with the following command (remember to configure your api-token and organization first):
 
-```java -Dfile.encoding=UTF-8 -classpath "build/ardoq-excel-import-1.0.jar" com.ardoq.ExcelImport ./default.properties```
+```java -Dfile.encoding=UTF-8 -classpath "build/ardoq-excel-import-1.1.jar" com.ardoq.ExcelImport ./examples/business_process/business_process.properties```
 
-##Configuration
+If you only need the binary you can download [the Überjar](./build/ardoq-excel-import-1.1.jar?raw=true) 
+
+## Configuration
 
 The default.properties file shows how to configure it:
 ```=ini
 #The authentication token to use (Generate a new one via your profile - Click on your name in Ardoq, Profile and Prefs -> API and Tokens)
-#ardoqToken=
+ardoqToken=<your api token>
 
 #The Ardoq host (default is https://app.ardoq.com
-#ardoqHost=https://app.ardoq.com
+ardoqHost=https://app.ardoq.com
 
 #Name of the workspace to synchronize to
-workspaceName=Excel import
-#The model name you wish to use
-modelName=Application service
+workspaceName=excelImport
 
-#The organization name if you have an Enterprise account
-#organization=mw
+#The model name you wish to use. (You can find the available models here https://app.ardoq.com/api/model?includeCommon=true?org=<your organization label>)
+modelName=Application Service
+
+#The organization label (You'll find this in the API-token tab under your settings)
+organization=<your organization label>
 
 #Deletes components and references not found in spreadsheet if set to YES
-deleteMissing=YES
+deleteMissing=NO
 
 #ComponentFile is the excel file with components
 componentFile=./src/main/resources/data.xlsx
 
-#component sheet is the name of the spreadsheet with compopnents to load
+#component sheet is the name of the spreadsheet with components to load
 componentSheet=Application list
 
 #The name of the columns that you wish to map to a page type in the model.
 compMapping_System=Application
 compMapping_Application=Service
+
+#If you have multiple leaf types in your model, you can use a separate column to specify the type (see .examples/business_process for an example)
+#dynamicCompMapping_TypeMapping=Service
 
 #The name of the column that has the descriptions
 compDescriptionColumn=General description
@@ -49,7 +56,6 @@ compDescriptionColumn=General description
 fieldColMapping_TAM\ Mapping=tam_mapping
 fieldColMapping_Criticality=criticality
 fieldColMapping_Category=category
-
 
 #Reference File is the excel file with references (can be the same as component file)
 #If you do not wish to import references, please comment it out with #
