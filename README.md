@@ -12,6 +12,16 @@ After you have downloaded this project you can execute the example with the foll
 
 If you only need the binary you can download [the Überjar](./build/ardoq-excel-import-1.1.jar?raw=true) 
 
+## Example
+
+The included example file [./examples/business_process/business_process.xlsm] show how you can import a small process into the default Business Process template.
+
+![Model](examples/business_process/img/Model.png)
+
+After importing the example file, Ardoq will automatically generated visualizations, for example this Swimlane view.
+
+![Swimlane example](examples/business_process/img/Swimlane.png)
+
 ## Configuration
 
 The default.properties file shows how to configure it:
