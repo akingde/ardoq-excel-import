@@ -22,6 +22,17 @@ After importing the example file, Ardoq will automatically generated visualizati
 
 ![Swimlane](examples/business_process/img/Swimlane.png)
 
+The table view can be used to see the imported field values.
+![Table view](examples/business_process/img/Table.png)
+
+The Treemap view can dynamically size steps according to field values (in this example the duration of each step).
+
+![Treemap view](examples/business_process/img/Treemap.png)
+
+Showing existing links and quickly adding new ones can be done using the Dependency Matrix view
+
+![Dependency Matrix view](examples/business_process/img/DependencyMatrix.png)
+
 ## Configuration
 
 The default.properties file shows how to configure it:
