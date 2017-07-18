@@ -6,7 +6,7 @@
 
     <artifactId>ardoq-excel-import</artifactId>
     <groupId>com.ardoq.tools</groupId>
-    <version>1.1</version>
+    <version>1.2-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <properties>
