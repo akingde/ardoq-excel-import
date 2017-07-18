@@ -14,7 +14,7 @@ If you only need the binary you can download [the Überjar](./build/ardoq-excel-
 
 ## Example
 
-The included example file [./examples/business_process/business_process.xlsm] show how you can import a small process into the default Business Process template.
+The included example file [./examples/business_process/business_process.xlsm](./examples/business_process/business_process.xlsm?raw=true) show how you can import a small process into the default Business Process template.
 
 ![Model](examples/business_process/img/Model.png)
 
