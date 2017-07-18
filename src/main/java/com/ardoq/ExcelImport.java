@@ -132,6 +132,11 @@ public class ExcelImport {
         // Import components
         XSSFSheet compSheet = workbook.getSheet(componentSheet);
 
+        if (null == compSheet) {
+            System.err.println("Couldn't find component sheet: " + componentSheet);
+            System.exit(-1);
+        }
+
         System.out.println("Analyzing sheet");
         XSSFRow headingRow = compSheet.getRow(0);
 
@@ -287,6 +292,10 @@ public class ExcelImport {
         System.out.println("Finding reference spread sheet: " + referenceFile);
         // Import components
         XSSFSheet referenceSheet = workbook.getSheet(ExcelImport.referenceSheet);
+        if (null == referenceSheet) {
+            System.err.println("Couldn't find references sheet: " + ExcelImport.referenceSheet);
+            System.exit(1);
+        }
         System.out.println("Analyzing sheet");
 
         int rowIndex = referenceStartFromRow;
@@ -406,7 +415,7 @@ public class ExcelImport {
     private static void parseConfig() {
         host = config.getProperty("ardoqHost", "https://app.ardoq.com");
         token = config.getProperty("ardoqToken", System.getenv("ardoqToken"));
-        organization = config.getProperty("organization", "ardoq");
+        organization = getRequiredValue("organization");
         if (config.getProperty("clientLogLevel") != null) {
             logLevel = RestAdapter.LogLevel.valueOf(config.getProperty("clientLogLevel"));
         }
