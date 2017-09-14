@@ -256,6 +256,8 @@ public class ExcelImport {
                 return cell.getNumericCellValue();
             case Cell.CELL_TYPE_FORMULA:
                 return getFieldValue(cell.getCachedFormulaResultType(), cell);
+            case Cell.CELL_TYPE_BLANK:
+                return null;
             default:
                 return cell.getStringCellValue();
         }
