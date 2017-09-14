@@ -8,9 +8,9 @@ You must configure your authentication token and set the environment variable `a
 
 After you have downloaded this project you can execute the example with the following command (remember to configure your api-token and organization first):
 
-```java -Dfile.encoding=UTF-8 -classpath "build/ardoq-excel-import-1.1.jar" com.ardoq.ExcelImport ./examples/business_process/business_process.properties```
+```java -Dfile.encoding=UTF-8 -classpath "build/ardoq-excel-import-1.2.jar" com.ardoq.ExcelImport ./examples/business_process/business_process.properties```
 
-If you only need the binary you can download [the Überjar](./build/ardoq-excel-import-1.1.jar?raw=true) 
+If you only need the binary you can download [the Überjar](./build/ardoq-excel-import-1.2.jar?raw=true) 
 
 ## Example
 
