@@ -28,6 +28,7 @@ public class ExcelImport {
     private static Map<String, String> columnMapping = new HashMap<>();
     private static String modelName;
     private static String workspaceName;
+    private static String targetWorkspaceName;
     private static String componentSheet;
     private static String componentFile;
     private static String referenceFile;
@@ -38,6 +39,7 @@ public class ExcelImport {
     private static String descriptionColumn;
     private static ArdoqClient client;
     private static SyncUtil ardoqSync;
+    private static SyncUtil ardoqTargetSync;
     private static String organization;
     private static String referenceSheet;
     private static String referenceDefaultLinkType;
@@ -320,7 +322,9 @@ public class ExcelImport {
                     }
 
                     for (Component target : targetComponents) {
-                        ardoqSync.addReference(new Reference(ardoqSync.getWorkspace().getId(), "", sourceComp.getId(), target.getId(), linkType));
+                        Reference ref = new Reference(ardoqSync.getWorkspace().getId(), "", sourceComp.getId(), target.getId(), linkType);
+                        ref.setTargetWorkspace(ardoqTargetSync.getWorkspace().getId());
+                        ardoqSync.addReference(ref);
                     }
 
                 } else {
@@ -337,8 +341,13 @@ public class ExcelImport {
     private static List<Component> getTargetComponents(XSSFRow referencesRow) {
         ArrayList<Component> comps = new ArrayList<Component>();
         String tc = getStringValueFromCell(referencesRow, referenceStartFromColumn);
-
-        Component c = cachedMap.get(tc.replace(componentSeparator, SyncUtil.SPLIT_CHARACTER));
+        String fixedName = tc.replace(componentSeparator, SyncUtil.SPLIT_CHARACTER);
+        Component c = cachedMap.get(fixedName);
+        
+        if (null != targetWorkspaceName) {
+            c = ardoqTargetSync.getComponentByPath(fixedName);
+        }
+        
         if (c != null) {
             comps.add(c);
         } else {
@@ -371,16 +380,20 @@ public class ExcelImport {
     }
 
     private static Component getComponent(String path, String name, String type) {
-        Component comp = ardoqSync.getComponentByPath(path);
+        return getComponent(ardoqSync, path, name, type);
+    }
+
+    private static Component getComponent(SyncUtil syncClient, String path, String name, String type) {
+        Component comp = syncClient.getComponentByPath(path);
         if (comp == null) {
             comp = cachedMap.get(path);
         } else if (!comp.getType().equals(type)) {
-            comp.setTypeId(ardoqSync.getModel().getComponentTypeByName(type));
+            comp.setTypeId(syncClient.getModel().getComponentTypeByName(type));
             comp.setType(type);
         }
 
         if (comp == null) {
-            comp = new Component(name, ardoqSync.getWorkspace().getId(), "", ardoqSync.getModel().getComponentTypeByName(type));
+            comp = new Component(name, syncClient.getWorkspace().getId(), "", syncClient.getModel().getComponentTypeByName(type));
             cachedMap.put(path, comp);
         } else {
             cachedMap.put(path, comp);
@@ -388,11 +401,7 @@ public class ExcelImport {
         return comp;
     }
 
-    private static void initClient() {
-        System.out.println("Connecting to: " + host + " with token: " + token);
-        client = new ArdoqClient(host, token);
-        client.setLogLevel(logLevel);
-        client.setOrganization(organization);
+    private static SyncUtil getSyncUtilForWorkspace(String workspaceName) {
         List<Workspace> workspaces = client.workspace().findWorkspacesByName(workspaceName);
 
         if (workspaces.size() > 1) {
@@ -411,7 +420,20 @@ public class ExcelImport {
             workspace = client.workspace().createWorkspace(workspace);
         }
 
-        ardoqSync = new SyncUtil(client, workspace);
+        return new SyncUtil(client, workspace);
+
+    }
+    private static void initClient() {
+        System.out.println("Connecting to: " + host + " with token: " + token);
+        client = new ArdoqClient(host, token);
+        client.setLogLevel(logLevel);
+        client.setOrganization(organization);
+        ardoqSync = getSyncUtilForWorkspace(workspaceName);
+        if (null != targetWorkspaceName) {
+            ardoqTargetSync = getSyncUtilForWorkspace(targetWorkspaceName);
+        } else {
+            ardoqTargetSync = ardoqSync;
+        }
     }
 
     private static void parseConfig() {
@@ -432,6 +454,10 @@ public class ExcelImport {
         modelName = getRequiredValue("modelName");
 
         workspaceName = getRequiredValue("workspaceName");
+        targetWorkspaceName = config.getProperty("targetWorkspaceName", null);
+        if (null != targetWorkspaceName) {
+            System.out.println("Creating references to target workspace: "+ targetWorkspaceName);
+        }
         componentSheet = getRequiredValue("componentSheet");
 
         componentFile = getRequiredValue("componentFile");

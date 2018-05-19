@@ -8,9 +8,9 @@ You must configure your authentication token and set the environment variable `a
 
 After you have downloaded this project you can execute the example with the following command (remember to configure your api-token and organization first):
 
-```java -Dfile.encoding=UTF-8 -classpath "build/ardoq-excel-import-1.2.jar" com.ardoq.ExcelImport ./examples/business_process/business_process.properties```
+```java -Dfile.encoding=UTF-8 -classpath "build/ardoq-excel-import-1.2.1.jar" com.ardoq.ExcelImport ./examples/business_process/business_process.properties```
 
-If you only need the binary you can download [the Überjar](./build/ardoq-excel-import-1.2.jar?raw=true) 
+If you only need the binary you can download [the Überjar](./build/ardoq-excel-import-1.2.1.jar?raw=true) 
 
 ## Example
 
@@ -32,6 +32,12 @@ The Treemap view can dynamically size steps according to field values (in this e
 Showing existing links and quickly adding new ones can be done using the Dependency Matrix view
 
 ![Dependency Matrix view](examples/business_process/img/DependencyMatrix.png)
+
+
+## Cross workspace reference configuration
+If you need to create references across workspaces, that can be done running multiple imports.
+First you need to import the workspace and components that will be references from another workspace.
+See an example of configurations and example Excel spread sheet in ./examples/cross_workspace_references
 
 ## Configuration
 
@@ -81,6 +87,11 @@ referenceFile=./examples/business_process/business_process.xlsm
 
 #Component page separator for source and target page references.
 referenceComponentSeparator=::
+
+#If you wish to link to a different _PRE-EXISTING_ workspace specify name here
+#NB! Component's must exist already, and will not be auto created.
+#If you need that, then you must a seperate configuration that maps the models and fields, and run it seperately.
+#targetWorkspaceName=excelImportTarget 
 
 #Referencesheet is the name of the spreadsheet that has the references
 referenceSheet=Links (auto generated)
